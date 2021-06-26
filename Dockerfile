@@ -10,22 +10,49 @@ RUN apt-get install git -y
 RUN apt-get install curl -y
 
 
-RUN apt install tzdata -y
-RUN apt-get install aria2 -y
+
+WORKDIR /app
+
+ENV RPC_SECRET=""
+ENV ENABLE_AUTH=false
+ENV ENABLE_RCLONE=true
+ENV DOMAIN=:80
+ENV ARIA2_USER=user
+ENV ARIA2_PWD=password
+ENV ARIA2_SSL=false
+ENV ARIA2_EXTERNAL_PORT=80
+ENV PUID=1000
+ENV PGID=1000
+ENV CADDYPATH=/app
+ENV RCLONE_CONFIG=/app/conf/rclone.conf
+ENV XDG_DATA_HOME=/app/.caddy/data
+ENV XDG_CONFIG_HOME=/app/.caddy/config
+RUN mkdir /app/conf
+RUN git clone https://github.com/winkxx/rclone
+RUN cd /app/conf
+RUN cp rclone.conf /app/conf
+RUN cd /app
 
 
+ADD install.sh aria2c.sh caddy.sh Procfile init.sh start.sh rclone.sh /app/
+ADD conf /app/conf
+ADD Caddyfile SecureCaddyfile HerokuCaddyfile /usr/local/caddy/
 
-RUN mkdir /root/.aria2
-COPY config /root/.aria2/
+RUN ./install.sh
 
-COPY root /
 
-RUN pip3 install -r requirements.txt
+RUN rm ./install.sh
 
-#COPY bot /bot
+# folder for storing ssl keys
+VOLUME /app/conf/key
 
-RUN sudo chmod 777 /root/.aria2/
-RUN sudo chmod 777 /rclone
-RUN mv /rclone /usr/bin/
+# file downloading folder
+VOLUME /data
 
-CMD wget https://raw.githubusercontent.com/wwpry/bot-y/main/start.sh  && chmod 0777 start.sh && bash start.sh
+EXPOSE 80 443
+
+HEALTHCHECK --interval=1m --timeout=3s \
+  CMD curl -f http://localhost || exit 1
+
+CMD ["./start.sh"]
+
